@@ -1,13 +1,13 @@
 # Encrypted VM Manager
 
-Use CloudFormation to managing the launching and termination of VMs
+Use CloudFormation to manage launching and terminating VMs.
 
 ## Running the VM Manager
 
 A convenience script has been written to:
 
 - check you the CLIs installed
-- launch the VPN for encryted comms
+- launch the VPN for encrypted comms
 - launch the VM
 - obtain the connection DNS hostname
 - obtain the VM admin password
