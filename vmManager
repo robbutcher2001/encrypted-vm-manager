@@ -28,7 +28,7 @@ function init() {
     printf '\nRead failed for default key ['$privateKeyLocation']. Where is your key? '
     read privateKeyLocation
     if [[ ! -f $privateKeyLocation ]]; then
-      finishWithError 'Read failed again for custom key location ['$privateKeyLocation']. Please verify.'
+      finish_with_error 'Read failed again for custom key location ['$privateKeyLocation']. Please verify.'
     fi
   fi
 
@@ -38,14 +38,12 @@ function init() {
     printf '\e[32m\xE2\x9C\x94 Verified AWS CLI is installed\e[m\n'
   else
     printf '\e[31m\xE2\x9D\x8C AWS CLI not found on system, please install.\e[m\n'
-    finishWithError 'Unmet dependencies'
+    finish_with_error 'Unmet dependencies'
   fi
-
-  printf '\n'
 }
 
 function check_for_running_instances() {
-  printf '=> Contacting AWS for instance statuses..\n'
+  printf '\n=> Contacting AWS..\n'
 
   local awsResp=$(aws ec2 describe-instances --filters 'Name=key-name,Values='$vmKeyPair)
   local runningCount=$(echo $awsResp | bin/jq -r '.Reservations | length')
@@ -59,10 +57,10 @@ function check_for_running_instances() {
         terminate_instance
       else
         if [[ $action == 'p' || $action == 'P' ]]; then
-          obtain_admin_password
+          get_admin_password
           check_for_running_instances
         else
-          finishWithError "Unrecognised action ['$action'], can only be \'t\' or \'p\'"
+          finish_with_error "Unrecognised action ['$action'], can only be \'t\' or \'p\'"
         fi
       fi
     fi
@@ -77,22 +75,38 @@ function launch_instance() {
   instanceId=$(echo $awsResp | bin/jq -r '.Instances[0].InstanceId')
 
   if [[ $instanceId == *'i-'* ]]; then
-    printf ' instance created with ID ['$instanceId']\n'
-    getPublicDNS
-    obtain_admin_password
-    check_for_running_instances
+    printf ' instance created with ID ['$instanceId']\n\n'
   else
-    finishWithError 'Instance could not be created, try again in a minute'
+    finish_with_error 'Instance could not be created, try again in a minute'
   fi
 }
 
-function getPublicDNS() {
-  printf '=> Waiting for public DNS to be available..'
-  pollGetDNS
+function get_admin_password() {
+  printf '\n=> Obtaining instance administrator password..'
+  poll_get_admin_password
 }
 
-function pollGetDNS() {
-  printf '.'
+function poll_get_admin_password() {
+  local awsResp=$(aws ec2 get-password-data --instance-id $instanceId --priv-launch-key $privateKeyLocation)
+  local password=$(echo $awsResp | bin/jq -r '.PasswordData')
+
+  if [[ $password != '' ]]; then
+    printf ' obtained and decoded.\n\n'
+    printf 'You can now log into your Windows VM using:\n   - Username: Administrator\n   - Password: '$password'\n\n'
+
+    if [[ $OSTYPE == *'darwin'* ]]; then
+      echo $password | tr -d '\n' | pbcopy
+      printf '\e[32mPassword has been copied to your clipboard.\e[m\n'
+    fi
+  else
+    printf '.'
+    sleep 10
+    poll_get_admin_password
+  fi
+}
+
+function get_public_dns() {
+  printf '=> Obtain instance DNS for connecting..'
 
   local awsResp=$(aws ec2 describe-instances --instance-ids $instanceId)
   local dns=$(echo $awsResp | bin/jq -r '.Reservations[0].Instances[0].PublicDnsName')
@@ -109,42 +123,20 @@ function pollGetDNS() {
   fi
 }
 
-#not used yet
-function get_instance_status() {
-  local awsResp=$(aws ec2 describe-instance-status --instance-ids i-0404daaa739bea4a2)
-  local runningCount=$(echo $awsResp | bin/jq -r '.InstanceStatuses | length')
-
-  if [[ $runningCount == *0* ]]; then
-    printf '\e[32mNo running instances for ['$activeUser']\e[m\n'
-  fi
-}
-
-function obtain_admin_password() {
-  printf '\n=> Obtaining instance administrator password..'
-
-  local awsResp=$(aws ec2 get-password-data --instance-id $instanceId --priv-launch-key $privateKeyLocation)
-  local password=$(echo $awsResp | bin/jq -r '.PasswordData')
-  printf ' obtained and decoded.\n\n'
-  printf 'You can now log into your Windows VM using:\n   - Username: Administrator\n   - Password: '$password'\n\n'
-
-  if [[ $password != '' && $OSTYPE == *'darwin'* ]]; then
-    echo $password | tr -d '\n' | pbcopy
-    printf '\e[32mPassword has been copied to your clipboard.\e[m\n'
-  fi
-}
-
 function terminate_instance() {
+  printf '\n=> Terminating instance ['$instanceId']..\n'
+
   local awsResp=$(aws ec2 terminate-instances --instance-ids $instanceId)
   local statusCode=$(echo $awsResp | bin/jq -r '.TerminatingInstances[0].CurrentState.Code')
 
   if (( $statusCode == 32 )); then
-    instanceId=$(echo $awsResp | bin/jq -r '.Reservations[0].Instances[0].InstanceId')
     printf '\e[32mInstance has been successfully terminated. Job done.\e[m\n'
+    #TODO: try again if failed?
     finish
   fi
 }
 
-function finishWithError() {
+function finish_with_error() {
   printf '\n\e[31mManager Finished. Exiting abnormally.\n'
   printf "Error: $1.\e[m\n"
   exit 1
@@ -165,16 +157,15 @@ if (( $? == 1 )); then
   read action
   if [[ $action == 'y' || $action == 'Y' ]]; then
     launch_instance
+    printf '=> Waiting for Windows administrator password to be available (may take a few minutes) ..'
+    poll_get_admin_password
+    get_public_dns
+    check_for_running_instances
   else
     if [[ $action == 'n' || $action == 'N' ]]; then
       finish
     fi
   fi
 fi
-# launch_instance
-# get_instance_status
-# obtain_admin_password
-
-#...
 
 finish
