@@ -92,7 +92,9 @@ function poll_get_admin_password() {
 
   if [[ $password != '' ]]; then
     printf ' obtained and decoded.\n\n'
-    printf 'You can now log into your Windows VM using:\n   - Username: Administrator\n   - Password: '$password'\n\n'
+    printf 'You can now log into your Windows VM using:\n   - Username: Administrator\n   - Password: '
+    printf '%s' $password
+    printf '\n\n'
 
     if [[ $OSTYPE == *'darwin'* ]]; then
       echo $password | tr -d '\n' | pbcopy
