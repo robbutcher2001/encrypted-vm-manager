@@ -9,11 +9,24 @@ readonly vmSG='sg-02bab4ce68aad6be0'
 readonly privateKeyLocation=$HOME'/'$vmKeyPair'.pem'
 
 ## Global vars ##
+jq='./bin/jq-mac'
+mac=false
+linux=false
 instanceId='not-assigned'
 
 cd $(dirname ${BASH_SOURCE[0]})
 
 ## Functions ##
+function check_os() {
+  if [[ $OSTYPE == *'darwin'*  ]]; then
+    mac=true
+  elif [[ $OSTYPE == *'linux'*  ]]; then
+    linux=true
+  else
+    finish_with_error 'Operating system not supported'
+  fi
+}
+
 function welcome() {
   printf '\n************************************\n'
   printf "** Butcher\'s Encrypted VM Manager **\n"
@@ -23,6 +36,13 @@ function welcome() {
 
 function init() {
   printf '=> Performing system checks..\n'
+
+  check_os
+
+  if [[ $linux == true ]]; then
+    jq='./bin/jq-linux'
+    printf '\e[32m\n\xE2\x9C\x94 Using Linux jq binary\e[m'
+  fi
 
   if [[ ! -f $privateKeyLocation ]]; then
     printf '\nRead failed for default key ['$privateKeyLocation']. Where is your key? '
@@ -46,11 +66,11 @@ function check_for_running_instances() {
   printf '\n=> Contacting AWS..\n'
 
   local awsResp=$(aws ec2 describe-instances --filters 'Name=key-name,Values='$vmKeyPair)
-  local runningCount=$(echo $awsResp | bin/jq -r '.Reservations | length')
+  local runningCount=$(echo $awsResp | $jq -r '.Reservations | length')
   if (( $runningCount > 0 )); then
-    local instanceState=$(echo $awsResp | bin/jq -r '.Reservations[0].Instances[0].State.Code')
+    local instanceState=$(echo $awsResp | $jq -r '.Reservations[0].Instances[0].State.Code')
     if (( $instanceState != 48 )); then
-      instanceId=$(echo $awsResp | bin/jq -r '.Reservations[0].Instances[0].InstanceId')
+      instanceId=$(echo $awsResp | $jq -r '.Reservations[0].Instances[0].InstanceId')
       printf '\e[33m\nRunning instance for user ['$activeUser'] found, terminate or get password? [t|p]\e[m\n'
       read action
       if [[ $action == 't' || $action == 'T' ]]; then
@@ -72,7 +92,7 @@ function check_for_running_instances() {
 function launch_instance() {
   printf '\nSpawning new instance for ['$activeUser']..'
   local awsResp=$(aws ec2 run-instances --image-id $vmAmiID --count 1 --instance-type $vmSize --key-name $vmKeyPair --security-group-ids $vmSG --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value='$activeUser'}]')
-  instanceId=$(echo $awsResp | bin/jq -r '.Instances[0].InstanceId')
+  instanceId=$(echo $awsResp | $jq -r '.Instances[0].InstanceId')
 
   if [[ $instanceId == *'i-'* ]]; then
     printf ' instance created with ID ['$instanceId']\n\n'
@@ -88,7 +108,7 @@ function get_admin_password() {
 
 function poll_get_admin_password() {
   local awsResp=$(aws ec2 get-password-data --instance-id $instanceId --priv-launch-key $privateKeyLocation)
-  local password=$(echo $awsResp | bin/jq -r '.PasswordData')
+  local password=$(echo $awsResp | $jq -r '.PasswordData')
 
   if [[ $password != '' ]]; then
     printf ' obtained and decoded.\n\n'
@@ -96,7 +116,7 @@ function poll_get_admin_password() {
     printf '%s' $password
     printf '\n\n'
 
-    if [[ $OSTYPE == *'darwin'* ]]; then
+    if [[ $mac == true ]]; then
       echo $password | tr -d '\n' | pbcopy
       printf '\e[32mPassword has been copied to your clipboard.\e[m\n'
     fi
@@ -111,11 +131,11 @@ function get_public_dns() {
   printf '=> Obtain instance DNS for connecting..'
 
   local awsResp=$(aws ec2 describe-instances --instance-ids $instanceId)
-  local dns=$(echo $awsResp | bin/jq -r '.Reservations[0].Instances[0].PublicDnsName')
+  local dns=$(echo $awsResp | $jq -r '.Reservations[0].Instances[0].PublicDnsName')
 
   if [[ $dns != '' ]]; then
     printf '\e[32m\n\nInstance now accessible with DNS ['$dns']\e[m\n'
-    if [[ $OSTYPE == *'darwin'* ]]; then
+    if [[ $mac == true ]]; then
       echo $dns | tr -d '\n' | pbcopy
       printf '\e[32mDNS has been copied to your clipboard.\e[m\n'
     fi
@@ -129,7 +149,7 @@ function terminate_instance() {
   printf '\n=> Terminating instance ['$instanceId']..\n'
 
   local awsResp=$(aws ec2 terminate-instances --instance-ids $instanceId)
-  local statusCode=$(echo $awsResp | bin/jq -r '.TerminatingInstances[0].CurrentState.Code')
+  local statusCode=$(echo $awsResp | $jq -r '.TerminatingInstances[0].CurrentState.Code')
 
   if (( $statusCode == 32 )); then
     printf '\e[32mInstance has been successfully terminated. Job done.\e[m\n'
