@@ -31,9 +31,8 @@ function check_os() {
 function create_key_pair() {
   printf '\n=> Generating you a first time VM key pair..'
 
-  local awsResp=$(aws ec2 create-key-pair --key-name $activeUser)
-  local key=$(echo $awsResp | $jq -r '.KeyMaterial')
-  echo $key > $privateKeyLocation
+  local awsResp=$(aws ec2 create-key-pair --key-name $vmKeyPair --query 'KeyMaterial' --output text > $privateKeyLocation)
+  chmod 400 $privateKeyLocation
 
   printf ' done and written to ['$privateKeyLocation'].\n'
 }
@@ -76,23 +75,20 @@ function init() {
 function check_for_running_instances() {
   printf '\n=> Contacting AWS..\n'
 
-  local awsResp=$(aws ec2 describe-instances --filters 'Name=key-name,Values='$vmKeyPair)
+  local awsResp=$(aws ec2 describe-instances --filters 'Name=key-name,Values='$vmKeyPair 'Name=instance-state-code,Values=16')
   local runningCount=$(echo $awsResp | $jq -r '.Reservations | length')
   if (( $runningCount > 0 )); then
-    local instanceState=$(echo $awsResp | $jq -r '.Reservations[0].Instances[0].State.Code')
-    if (( $instanceState != 48 )); then
-      instanceId=$(echo $awsResp | $jq -r '.Reservations[0].Instances[0].InstanceId')
-      printf '\e[33m\nRunning instance for user ['$activeUser'] found, terminate or get password? [t|p]\e[m\n'
-      read action
-      if [[ $action == 't' || $action == 'T' ]]; then
-        terminate_instance
+    instanceId=$(echo $awsResp | $jq -r '.Reservations[0].Instances[0].InstanceId')
+    printf '\e[33m\nRunning instance for user ['$activeUser'] found, terminate or get password? [t|p]\e[m\n'
+    read action
+    if [[ $action == 't' || $action == 'T' ]]; then
+      terminate_instance
+    else
+      if [[ $action == 'p' || $action == 'P' ]]; then
+        get_admin_password
+        check_for_running_instances
       else
-        if [[ $action == 'p' || $action == 'P' ]]; then
-          get_admin_password
-          check_for_running_instances
-        else
-          finish_with_error "Unrecognised action ['$action'], can only be \'t\' or \'p\'"
-        fi
+        finish_with_error "Unrecognised action ['$action'], can only be \'t\' or \'p\'"
       fi
     fi
   fi
