@@ -2,11 +2,12 @@
 
 ## Global consts ##
 readonly activeUser=$USER
+readonly activeUserHome=$HOME
 readonly vmAmiID='ami-0e19770d1a2173385'
 readonly vmSize='t2.micro'
-readonly vmKeyPair='aws-vm-key'
 readonly vmSG='sg-02bab4ce68aad6be0'
-readonly privateKeyLocation=$HOME'/'$vmKeyPair'.pem'
+readonly vmKeyPair=$activeUser
+readonly privateKeyLocation=$activeUserHome'/'$vmKeyPair'-aws-vm-key.pem'
 
 ## Global vars ##
 jq='./bin/jq-mac'
@@ -27,6 +28,16 @@ function check_os() {
   fi
 }
 
+function create_key_pair() {
+  printf '\n=> Generating you a first time VM key pair..'
+
+  local awsResp=$(aws ec2 create-key-pair --key-name $activeUser)
+  local key=$(echo $awsResp | $jq -r '.KeyMaterial')
+  echo $key > $privateKeyLocation
+
+  printf ' done and written to ['$privateKeyLocation'].\n'
+}
+
 function welcome() {
   printf '\n************************************\n'
   printf "** Butcher\'s Encrypted VM Manager **\n"
@@ -45,10 +56,10 @@ function init() {
   fi
 
   if [[ ! -f $privateKeyLocation ]]; then
-    printf '\nRead failed for default key ['$privateKeyLocation']. Where is your key? '
-    read privateKeyLocation
+    printf '\nRead failed for default key ['$privateKeyLocation']. Probably first time run.\n'
+    create_key_pair
     if [[ ! -f $privateKeyLocation ]]; then
-      finish_with_error 'Read failed again for custom key location ['$privateKeyLocation']. Please verify.'
+      finish_with_error 'Read failed again for default key ['$privateKeyLocation']. Please verify.'
     fi
   fi
 
