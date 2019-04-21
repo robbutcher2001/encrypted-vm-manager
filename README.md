@@ -7,7 +7,6 @@ Manages the launching and terminating of AWS VMs.
 A convenience script has been written to:
 
 - check you have the CLIs installed
-- launch the VPN for encrypted comms
 - launch the VM
 - obtain the connection DNS hostname
 - obtain the VM admin password
