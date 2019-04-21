@@ -3,7 +3,7 @@
 ## Global consts ##
 readonly activeUser=$USER
 readonly activeUserHome=$HOME
-readonly vmAmiID='ami-01025ca2fffacc149'
+readonly vmAmiID='ami-0498011f1d38eb4d7'
 readonly vmSize='t2.medium'
 readonly vmSG='sg-02bab4ce68aad6be0'
 readonly vmKeyPair=$activeUser
