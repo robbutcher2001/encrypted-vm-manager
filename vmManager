@@ -6,6 +6,7 @@ readonly activeUserHome=$HOME
 readonly vmAmiID='ami-0498011f1d38eb4d7'
 readonly vmSize='t2.medium'
 readonly vmSG='sg-02bab4ce68aad6be0'
+readonly vmIamRole='VmManagerS3AccessInstanceProfile'
 readonly vmKeyPair=$activeUser
 readonly privateKeyLocation=$activeUserHome'/'$vmKeyPair'-aws-vm-key.pem'
 
@@ -98,7 +99,7 @@ function check_for_running_instances() {
 
 function launch_instance() {
   printf '\nSpawning new instance for ['$activeUser']..'
-  local awsResp=$(aws ec2 run-instances --image-id $vmAmiID --count 1 --instance-type $vmSize --key-name $vmKeyPair --security-group-ids $vmSG --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value='$activeUser'}]')
+  local awsResp=$(aws ec2 run-instances --image-id $vmAmiID --count 1 --instance-type $vmSize --key-name $vmKeyPair --security-group-ids $vmSG --iam-instance-profile Name=$vmIamRole --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value='$activeUser'}]')
   instanceId=$(echo $awsResp | $jq -r '.Instances[0].InstanceId')
 
   if [[ $instanceId == *'i-'* ]]; then
