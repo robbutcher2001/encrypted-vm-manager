@@ -132,7 +132,7 @@ Resources:
   User1:
     Type: AWS::IAM::User
     Properties:
-      UserName: TestUser1
+      UserName: rob
       LoginProfile:
         Password: !Ref TemporaryUserPassword
         PasswordResetRequired: true
@@ -150,7 +150,7 @@ Resources:
             - iam:CreateAccessKey
             - iam:ListAccessKeys
             Resource:
-              Fn::Join: [ '', [ 'arn:aws:iam::', !Ref 'AWS::AccountId', ':user/', 'TestUser1' ] ]
+              Fn::Join: [ '', [ 'arn:aws:iam::', !Ref 'AWS::AccountId', ':user/', 'rob' ] ]
           - Effect: Allow
             Action:
             - iam:ListUsers
