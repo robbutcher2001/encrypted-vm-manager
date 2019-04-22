@@ -3,9 +3,9 @@
 ## Global consts ##
 readonly activeUser=$USER
 readonly activeUserHome=$HOME
-readonly vmAmiID='ami-0498011f1d38eb4d7'
+readonly vmAmiID='ami-07be31319f2e928c1'
 readonly vmSize='t2.medium'
-readonly vmSG='sg-0e1510ccc5ce05271'
+readonly vmSG='sg-0687e7a9873d4cabf'
 readonly vmIamRole='VmManagerS3AccessInstanceProfile'
 readonly vmKeyPair=$activeUser
 readonly privateKeyLocation=$activeUserHome'/'$vmKeyPair'-aws-vm-key.pem'
