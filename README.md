@@ -12,6 +12,6 @@ A convenience script has been written to:
 - obtain the VM admin password
 - terminate the VM once you're done
 
-Exe can be run directly on MacOS by double-clicking `vmManager`.
+Can be run directly on MacOS or Linux by double-clicking `vmManager`.
 
-_Note: has not been tested outside of MacOS as audience is very small._
+_Note: has not been tested outside of MacOS and Linux as audience is very small._
