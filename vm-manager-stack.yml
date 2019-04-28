@@ -181,3 +181,29 @@ Resources:
             Action:
             - iam:ListUsers
             Resource: '*'
+  User3:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: mike
+      LoginProfile:
+        Password: !Ref TemporaryUserPassword
+        PasswordResetRequired: true
+      Groups:
+        - !Ref VmManagerGroup
+      Policies:
+      - PolicyName: VmManagerAccessKeyIamPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - iam:DeleteAccessKey
+            - iam:GetAccessKeyLastUsed
+            - iam:CreateAccessKey
+            - iam:ListAccessKeys
+            Resource:
+              Fn::Join: [ '', [ 'arn:aws:iam::', !Ref 'AWS::AccountId', ':user/', 'mike' ] ]
+          - Effect: Allow
+            Action:
+            - iam:ListUsers
+            Resource: '*'
