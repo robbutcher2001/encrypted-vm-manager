@@ -41,7 +41,7 @@ function create_key_pair() {
 function welcome() {
   printf '\n************************************\n'
   printf "** Butcher\'s Encrypted VM Manager **\n"
-  printf '*************** v0.1 ***************\n\n'
+  printf '*************** v1.1 ***************\n\n'
   printf '=> Running as user ['$activeUser']\n'
 }
 
@@ -109,6 +109,29 @@ function launch_instance() {
   fi
 }
 
+function get_public_dns() {
+  printf '=> Obtaining instance DNS to connect..'
+  poll_get_public_dns
+}
+
+function poll_get_public_dns() {
+  local awsResp=$(aws ec2 describe-instances --instance-ids $instanceId)
+  local dns=$(echo $awsResp | $jq -r '.Reservations[0].Instances[0].PublicDnsName')
+
+  if [[ $dns != '' ]]; then
+    printf ' obtained.\n\n'
+    printf 'Instance now accessible with DNS ['$dns']\n\n'
+    if [[ $mac == true ]]; then
+      echo $dns | tr -d '\n' | pbcopy
+      printf '\e[32mDNS has been copied to your clipboard.\e[m\n'
+    fi
+  else
+    printf '.'
+    sleep 10
+    poll_get_public_dns
+  fi
+}
+
 function get_admin_password() {
   printf '\n=> Obtaining instance administrator password..'
   poll_get_admin_password
@@ -119,7 +142,7 @@ function poll_get_admin_password() {
   local password=$(echo $awsResp | $jq -r '.PasswordData')
 
   if [[ $password != '' ]]; then
-    printf ' obtained and decoded.\n\n'
+    printf ' obtained.\n\n'
     printf 'You can now log into your Windows VM using:\n   - Username: Administrator\n   - Password: '
     printf '%s' $password
     printf '\n\n'
@@ -135,26 +158,8 @@ function poll_get_admin_password() {
   fi
 }
 
-function get_public_dns() {
-  printf '=> Obtain instance DNS for connecting..'
-
-  local awsResp=$(aws ec2 describe-instances --instance-ids $instanceId)
-  local dns=$(echo $awsResp | $jq -r '.Reservations[0].Instances[0].PublicDnsName')
-
-  if [[ $dns != '' ]]; then
-    printf '\e[32m\n\nInstance now accessible with DNS ['$dns']\e[m\n'
-    if [[ $mac == true ]]; then
-      echo $dns | tr -d '\n' | pbcopy
-      printf '\e[32mDNS has been copied to your clipboard.\e[m\n'
-    fi
-  else
-    sleep 5
-    pollGetDNS
-  fi
-}
-
 function terminate_instance() {
-  printf '\n=> Terminating instance ['$instanceId']..\n'
+  printf '\n=> Terminating instance ['$instanceId']..\n\n'
 
   local awsResp=$(aws ec2 terminate-instances --instance-ids $instanceId)
   local statusCode=$(echo $awsResp | $jq -r '.TerminatingInstances[0].CurrentState.Code')
@@ -184,15 +189,16 @@ check_for_running_instances
 
 if (( $? == 1 )); then
   printf '\e[34m\nDo you want to launch a new instance now? [y|n]\e[m\n'
-  read action
-  if [[ $action == 'y' || $action == 'Y' ]]; then
+  read new_instance_action
+  if [[ $new_instance_action == 'y' || $new_instance_action == 'Y' ]]; then
     launch_instance
-    printf '=> Waiting for Windows administrator password to be available (may take a few minutes) ..'
-    poll_get_admin_password
     get_public_dns
+    printf '\e[34m\nPress any key to now get the Windows administrator password (may take a few minutes)\e[m\n\n'
+    read -n 1 -s -r
+    get_admin_password
     check_for_running_instances
   else
-    if [[ $action == 'n' || $action == 'N' ]]; then
+    if [[ $new_instance_action == 'n' || $new_instance_action == 'N' ]]; then
       finish
     fi
   fi
