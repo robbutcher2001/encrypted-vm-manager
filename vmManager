@@ -193,7 +193,7 @@ if (( $? == 1 )); then
   if [[ $new_instance_action == 'y' || $new_instance_action == 'Y' ]]; then
     launch_instance
     get_public_dns
-    printf '\e[34m\nPress any key to now get the Windows administrator password (may take a few minutes)\e[m\n\n'
+    printf '\e[34m\nPress any key to now get the Windows administrator password (may take a few minutes)\e[m\n'
     read -n 1 -s -r
     get_admin_password
     check_for_running_instances
